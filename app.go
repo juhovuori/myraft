@@ -7,11 +7,13 @@ import (
 )
 
 func main() {
+	const nodeCount = 7
 	comm := raft.NewMemoryComm()
-	cluster := raft.NewSimpleCluster(7)
+	cluster := raft.NewSimpleCluster(nodeCount)
 	nodes := []*raft.SimpleRaftNode{}
 	for nodeID := range cluster.Iter() {
-		n := raft.NewSimpleRaftNode(nodeID)
+		n := raft.NewSimpleRaftNode(nodeID, comm, nodeCount)
+		comm.Join(n)
 		n.StartRaft(comm, cluster)
 		nodes = append(nodes, n)
 	}
