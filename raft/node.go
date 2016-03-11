@@ -24,15 +24,19 @@ func NewSimpleNode(nodeID NodeID) *SimpleNode {
 	}
 }
 
-func (n *SimpleRaftNode) ID() NodeID {
+func (n *SimpleNode) OnMessage(msg Message) {
+
+}
+
+func (n *SimpleNode) ID() NodeID {
 	return n.nodeID
 }
 
-func (n *SimpleRaftNode) Log(msgs ...interface{}) {
+func (n *SimpleNode) Log(msgs ...interface{}) {
 	msgs = append([]interface{}{n.nodeIDPretty}, msgs...)
 	log.Println(msgs...)
 }
 
-func (n *SimpleRaftNode) Logf(f string, msgs ...interface{}) {
+func (n *SimpleNode) Logf(f string, msgs ...interface{}) {
 	log.Println(n.nodeIDPretty, fmt.Sprintf(f, msgs...))
 }

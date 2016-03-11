@@ -20,7 +20,7 @@ type RaftNode interface {
 }
 
 type SimpleRaftNode struct {
-	SimpleNode
+	Node
 	state           State
 	currentTerm     Term
 	votedFor        *NodeID
@@ -36,7 +36,7 @@ type SimpleRaftNode struct {
 
 func NewSimpleRaftNode(nodeID NodeID, comm Comm, nodeCount int) *SimpleRaftNode {
 	node := SimpleRaftNode{
-		*NewSimpleNode(nodeID),
+		NewSimpleNode(nodeID),
 		Follower,
 		Term(0),
 		nil,
@@ -71,7 +71,7 @@ func (n *SimpleRaftNode) OnLeadershipTimeout() {
 		}
 		msg := AppendEntries{
 			term:         n.currentTerm,
-			leaderID:     n.nodeID,
+			leaderID:     n.ID(),
 			prevLogIndex: len(n.log) - 1,
 			prevLogTerm:  prevLogTerm,
 			entries:      []LogEntry{},
@@ -105,10 +105,10 @@ func (n *SimpleRaftNode) ChangeState(newState State) {
 	case Candidate:
 		n.state = Candidate
 		n.currentTerm++
-		n.vote(n.nodeID)
+		n.vote(n.ID())
 		n.electionTimer.Reset()
 		n.receivedVotes = 0
-		msg := RequestVote{n.currentTerm, n.nodeID, 0, n.currentTerm}
+		msg := RequestVote{n.currentTerm, n.ID(), 0, n.currentTerm}
 		n.comm.Broadcast(msg)
 	case Leader:
 		n.state = Leader
