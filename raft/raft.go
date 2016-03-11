@@ -20,7 +20,7 @@ type RaftNode interface {
 }
 
 type SimpleRaftNode struct {
-	Node
+	SimpleNode
 	state           State
 	currentTerm     Term
 	votedFor        *NodeID
@@ -36,7 +36,7 @@ type SimpleRaftNode struct {
 
 func NewSimpleRaftNode(nodeID NodeID, comm Comm, nodeCount int) *SimpleRaftNode {
 	node := SimpleRaftNode{
-		NewSimpleNode(nodeID),
+		*NewSimpleNode(nodeID),
 		Follower,
 		Term(0),
 		nil,
