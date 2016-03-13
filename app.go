@@ -14,11 +14,11 @@ func main() {
 	for nodeID := range cluster.Iter() {
 		n := raft.NewSimpleRaftNode(nodeID, comm, nodeCount)
 		comm.Join(n)
-		n.StartRaft(comm, cluster)
+		go n.Raft(comm, cluster)
 		nodes = append(nodes, n)
 	}
 	time.Sleep(1000 * time.Millisecond)
 	for _, node := range nodes {
-		node.StopRaft()
+		node.Stop()
 	}
 }

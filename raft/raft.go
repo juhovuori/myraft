@@ -7,6 +7,10 @@ type LogEntry struct {
 	Command string
 }
 
+type Command interface{}
+
+type Stop struct{}
+
 const (
 	Follower  = State("follower")
 	Candidate = State("candidate")
@@ -15,8 +19,8 @@ const (
 
 type RaftNode interface {
 	Node
-	StartRaft(comm Comm, cluster Cluster)
-	StopRaft()
+	Raft(comm Comm, cluster Cluster)
+	Stop()
 }
 
 type SimpleRaftNode struct {
@@ -32,6 +36,8 @@ type SimpleRaftNode struct {
 	receivedVotes   int
 	commitIndex     int
 	lastApplied     int
+	commands        chan Command
+	done            chan bool
 }
 
 func NewSimpleRaftNode(nodeID NodeID, comm Comm, nodeCount int) *SimpleRaftNode {
@@ -48,18 +54,53 @@ func NewSimpleRaftNode(nodeID NodeID, comm Comm, nodeCount int) *SimpleRaftNode 
 		0,
 		0,
 		0,
+		make(chan Command),
+		make(chan bool),
 	}
 	node.electionTimer = NewDefaultTimer(ElectionMinTimeout, ElectionMaxTimeout, TimerCallback(node.OnElectionTimeout), &node)
 	node.leadershipTimer = NewDefaultTimer(LeadershipMinTimeout, LeadershipMaxTimeout, TimerCallback(node.OnLeadershipTimeout), &node)
 	return &node
 }
-func (n *SimpleRaftNode) StartRaft(comm Comm, cluster Cluster) {
-	n.electionTimer.Reset()
-	n.Log("Started raft")
+
+func (n *SimpleRaftNode) Stop() {
+	n.commands <- Stop{}
+	<-n.done
 }
 
-func (n *SimpleRaftNode) StopRaft() {
+func (n *SimpleRaftNode) Raft(comm Comm, cluster Cluster) {
+	n.electionTimer.Reset()
+	n.Log("Started raft")
+	for cmd := range n.commands {
+		if !n.RunCommand(cmd) {
+			break
+		}
+	}
 	n.Log("Stopped raft")
+	n.done <- true
+}
+
+func (n *SimpleRaftNode) RunCommand(cmd Command) bool {
+	switch cmd := cmd.(type) {
+	case RequestVote:
+		response := n.getVoteRequestResponse(cmd)
+		n.comm.Send(cmd.candidateID, RequestVoteResult{n.currentTerm, response})
+	case RequestVoteResult:
+		n.Log("Got vote", cmd)
+		n.receivedVotes++
+		if n.receivedVotes >= n.nodeCount/2+1 {
+			n.ChangeState(Leader)
+		}
+	case AppendEntries:
+		n.Log("AppendEntries", cmd)
+		n.electionTimer.Reset()
+	case AppendEntriesResult:
+		n.Log("AppendEntriesResult", cmd)
+	case Stop:
+		return false
+	default:
+		n.Log("Invalid command", cmd)
+	}
+	return true
 }
 
 func (n *SimpleRaftNode) OnLeadershipTimeout() {
@@ -117,24 +158,7 @@ func (n *SimpleRaftNode) ChangeState(newState State) {
 }
 
 func (n *SimpleRaftNode) OnMessage(m Message) {
-	switch m := m.(type) {
-	case RequestVote:
-		response := n.getVoteRequestResponse(m)
-		n.comm.Send(m.candidateID, RequestVoteResult{n.currentTerm, response})
-	case RequestVoteResult:
-		n.Log("Got vote", m)
-		n.receivedVotes++
-		if n.receivedVotes >= n.nodeCount/2+1 {
-			n.ChangeState(Leader)
-		}
-	case AppendEntries:
-		n.Log("AppendEntries", m)
-		n.electionTimer.Reset()
-	case AppendEntriesResult:
-		n.Log("AppendEntriesResult", m)
-	default:
-		n.Log("Invalid message", m)
-	}
+	n.commands <- m
 }
 
 func (n *SimpleRaftNode) vote(nodeID NodeID) {
