@@ -5,8 +5,6 @@ import (
 	"time"
 )
 
-type Message interface{}
-
 type Comm interface {
 	Join(Node) error
 	Send(NodeID, Message) error
@@ -21,8 +19,8 @@ func NewMemoryComm() *MemoryComm {
 	return &MemoryComm{map[NodeID]Node{}}
 }
 func (c *MemoryComm) Join(n Node) error {
-	_, ok := c.nodes[n.ID()]
-	if ok {
+
+	if _, ok := c.nodes[n.ID()]; ok {
 		return fmt.Errorf("Duplicate ID %v", n.ID())
 	}
 	c.nodes[n.ID()] = n
@@ -31,8 +29,7 @@ func (c *MemoryComm) Join(n Node) error {
 
 func (c *MemoryComm) Broadcast(message Message) error {
 	for id, _ := range c.nodes {
-		err := c.Send(id, message)
-		if err != nil {
+		if err := c.Send(id, message); err != nil {
 			return err
 		}
 	}

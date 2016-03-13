@@ -1,6 +1,17 @@
 package raft
 
+type Message interface{}
+
+type Command interface{}
+
+type Stop struct{}
+
+type LeadershipTimeout struct{}
+
+type ElectionTimeout struct{}
+
 type RequestVoteResult struct {
+	nodeID NodeID
 	term   Term
 	accept bool
 }
@@ -22,6 +33,7 @@ type AppendEntries struct {
 }
 
 type AppendEntriesResult struct {
+	nodeID  NodeID
 	term    Term
 	success bool
 }

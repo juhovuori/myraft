@@ -49,9 +49,15 @@ func (t *DefaultTimer) Stop() {
 	t.round++
 }
 
+func (t *DefaultTimer) log(msgs ...interface{}) {
+	if t.logger != nil {
+		t.logger.Log(append([]interface{}{t.name}, msgs...)...)
+	}
+}
+
 func (t *DefaultTimer) alarm(round int) {
 	d := Delay(t.minTimeout, t.maxTimeout)
-	t.logger.Log(t.name, "timing out for", d)
+	t.log("timing out for", d)
 	time.Sleep(d)
 	t.timeout <- round
 }
