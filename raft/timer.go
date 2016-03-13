@@ -13,6 +13,7 @@ var (
 
 type Timer interface {
 	Reset()
+	Stop()
 }
 
 type DefaultTimer struct {
@@ -22,9 +23,10 @@ type DefaultTimer struct {
 	timeout    chan int
 	delegate   Delegate
 	logger     Logger
+	name       string
 }
 
-func NewDefaultTimer(minTimeout, maxTimeout time.Duration, delegate Delegate, logger Logger) *DefaultTimer {
+func NewDefaultTimer(name string, minTimeout, maxTimeout time.Duration, delegate Delegate, logger Logger) *DefaultTimer {
 	t := DefaultTimer{
 		minTimeout,
 		maxTimeout,
@@ -32,6 +34,7 @@ func NewDefaultTimer(minTimeout, maxTimeout time.Duration, delegate Delegate, lo
 		make(chan int),
 		delegate,
 		logger,
+		name,
 	}
 	go t.wakeup()
 	return &t
@@ -42,9 +45,13 @@ func (t *DefaultTimer) Reset() {
 	go t.alarm(t.round)
 }
 
+func (t *DefaultTimer) Stop() {
+	t.round++
+}
+
 func (t *DefaultTimer) alarm(round int) {
 	d := Delay(t.minTimeout, t.maxTimeout)
-	t.logger.Log("Timing out for", d)
+	t.logger.Log(t.name, "timing out for", d)
 	time.Sleep(d)
 	t.timeout <- round
 }

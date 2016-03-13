@@ -7,7 +7,7 @@ import (
 )
 
 func main() {
-	const nodeCount = 7
+	const nodeCount = 3
 	comm := raft.NewMemoryComm()
 	cluster := raft.NewSimpleCluster(nodeCount)
 	nodes := []*raft.SimpleRaftNode{}
