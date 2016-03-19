@@ -5,21 +5,39 @@ import (
 	"time"
 )
 
+var ()
+
 type Comm interface {
+	Joiner
+	Broadcaster
+	//RPC(NodeID, interface{}) <-chan interface{}
+}
+
+type Joiner interface {
 	Join(Node) error
-	Send(NodeID, Message) error
-	Broadcast(Message) error
+}
+
+type Broadcaster interface {
+	BroadcastRPC(interface{}) <-chan interface{}
 }
 
 type MemoryComm struct {
-	nodes map[NodeID]Node
+	nodes           map[NodeID]Node
+	minMessageDelay time.Duration
+	maxMessageDelay time.Duration
+	rpcTimeout      time.Duration
 }
 
 func NewMemoryComm() *MemoryComm {
-	return &MemoryComm{map[NodeID]Node{}}
+	return &MemoryComm{
+		nodes:           map[NodeID]Node{},
+		minMessageDelay: time.Duration(0),
+		maxMessageDelay: time.Millisecond * 100,
+		rpcTimeout:      time.Millisecond * 99,
+	}
 }
-func (c *MemoryComm) Join(n Node) error {
 
+func (c *MemoryComm) Join(n Node) error {
 	if _, ok := c.nodes[n.ID()]; ok {
 		return fmt.Errorf("Duplicate ID %v", n.ID())
 	}
@@ -27,25 +45,36 @@ func (c *MemoryComm) Join(n Node) error {
 	return nil
 }
 
-func (c *MemoryComm) Broadcast(message Message) error {
-	for id, _ := range c.nodes {
-		if err := c.Send(id, message); err != nil {
-			return err
-		}
+func (c *MemoryComm) BroadcastRPC(message interface{}) <-chan interface{} {
+	results := make(chan interface{})
+	for _, node := range c.nodes {
+		c.rpc(node, message, results)
 	}
-	return nil
+	return results
 }
 
-func (c *MemoryComm) Send(id NodeID, message Message) error {
-	n, ok := c.nodes[id]
-	if !ok {
-		return fmt.Errorf("Invalid node %v", id)
+/*
+func (c *MemoryComm) RPC(id NodeID, message interface{}) <-chan interface{} {
+	result := make(chan interface{})
+	if n, ok := c.nodes[id]; ok {
+		go c.rpc(n, message, result)
+	} else {
+		result <- fmt.Errorf("Invalid node %v", id)
 	}
-	go c.send(n, message)
-	return nil
+	return result
 }
-
-func (c *MemoryComm) send(n Node, message Message) {
-	time.Sleep(Delay(0, time.Millisecond*100))
-	n.OnMessage(message)
+*/
+func (c *MemoryComm) rpc(n Node, message interface{}, result chan<- interface{}) {
+	timeout := time.After(c.rpcTimeout)
+	response := make(chan interface{})
+	go func() {
+		time.Sleep(Delay(c.minMessageDelay, c.maxMessageDelay))
+		response <- n.OnRPC(message)
+	}()
+	select {
+	case <-timeout:
+		result <- RPCTimeout{}
+	case res := <-response:
+		result <- res
+	}
 }

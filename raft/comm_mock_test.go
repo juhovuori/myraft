@@ -1,12 +1,13 @@
 package raft
 
+/*
 import (
 	"fmt"
 )
 
 type MockComm struct {
 	nodes    map[NodeID]Node
-	messages map[NodeID][]Message
+	messages map[NodeID][]interfa
 }
 
 func NewMockComm() *MockComm {
@@ -29,11 +30,4 @@ func (c *MockComm) Broadcast(message Message) error {
 	}
 	return nil
 }
-
-func (c *MockComm) Send(id NodeID, message Message) error {
-	c.messages[id] = append(c.messages[id], message)
-	if _, ok := c.nodes[id]; !ok {
-		return fmt.Errorf("Invalid node %v", id)
-	}
-	return nil
-}
+*/

@@ -7,7 +7,7 @@ import (
 type NodeID int
 
 type Node interface {
-	OnMessage(Message)
+	OnRPC(interface{}) interface{}
 	ID() NodeID
 }
 
@@ -27,8 +27,8 @@ func NewSimpleNode(nodeID NodeID) *SimpleNode {
 	}
 }
 
-func (n *SimpleNode) OnMessage(msg Message) {
-
+func (n *SimpleNode) OnRPC(msg interface{}) interface{} {
+	return fmt.Errorf("Not implemented")
 }
 
 func (n *SimpleNode) ID() NodeID {

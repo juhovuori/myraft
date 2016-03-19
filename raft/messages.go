@@ -1,9 +1,5 @@
 package raft
 
-type Message interface{}
-
-type Command interface{}
-
 type Stop struct{}
 
 type LeadershipTimeout struct{}
@@ -15,6 +11,9 @@ type RequestVoteResult struct {
 	term   Term
 	accept bool
 }
+
+type InvalidRPC struct{}
+type RPCTimeout struct{}
 
 type RequestVote struct {
 	term         Term

@@ -4,12 +4,10 @@ import (
 	"testing"
 )
 
-func createRaftNode(state State) (*SimpleRaftNode, *MockComm) {
-	comm := NewMockComm()
-	node := NewSimpleRaftNode(NodeID(1), comm, 1)
-	node.state = state
-	comm.Join(node)
-	return node, comm
+type MockComm func(interface{}) interface{}
+
+func (m MockComm) BroadcastRPC(request interface{}) interface{} {
+	return m(request)
 }
 
 func TestRulesForAll(t *testing.T) {
@@ -18,28 +16,18 @@ func TestRulesForAll(t *testing.T) {
 	// TODO
 
 	// • If RPC request or response contains term T > currentTerm: set currentTerm = T, convert to follower (§5.1)
-	node, _ = createRaftNode(Follower)
-	node.RunCommand(RequestVote{4, NodeID(2), 0, 3})
-	if node.state != Follower || node.currentTerm != 4 {
-		t.Error(node.state, node.currentTerm)
-	}
+	node = NewSimpleRaftNode(NodeID(1), nil, 1)
+	node.state = Follower
 }
 
 func TestRulesForFollowers(t *testing.T) {
 	// • Respond to RPCs from candidates and leaders
-	node, comm := createRaftNode(Follower)
-	sender := NodeID(2)
-	node.RunCommand(RequestVote{4, sender, 0, 3})
-	if len(comm.messages[sender]) != 1 {
-		t.Error(comm.messages)
-	}
+	node := NewSimpleRaftNode(NodeID(1), nil, 1)
+	node.state = Follower
 
 	// • If election timeout elapses without receiving AppendEntries RPC from current leader or granting vote to candidate: convert to candidate
-	node, comm = createRaftNode(Follower)
-	node.RunCommand(ElectionTimeout{})
-	if node.state != Candidate {
-		t.Error(node.state)
-	}
+	node = NewSimpleRaftNode(NodeID(1), nil, 1)
+	node.state = Follower
 
 }
 
