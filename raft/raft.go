@@ -30,8 +30,6 @@ type SimpleRaftNode struct {
 	electionTimer   Timer
 	leadershipTimer Timer
 	comm            comm.Comm
-	nodeCount       int
-	receivedVotes   int
 	commitIndex     int
 	lastApplied     int
 	done            chan bool
@@ -47,8 +45,6 @@ func NewSimpleRaftNode(nodeID comm.NodeID, c comm.Comm, nodeCount int) *SimpleRa
 		nil,
 		nil,
 		c,
-		nodeCount,
-		0,
 		0,
 		0,
 		make(chan bool),
@@ -56,14 +52,6 @@ func NewSimpleRaftNode(nodeID comm.NodeID, c comm.Comm, nodeCount int) *SimpleRa
 	node.electionTimer = NewDefaultTimer("electiontimer", ElectionMinTimeout, ElectionMaxTimeout, TimerCallback(node.OnElectionTimeout), nil)
 	node.leadershipTimer = NewDefaultTimer("leadershiptimer", LeadershipMinTimeout, LeadershipMaxTimeout, TimerCallback(node.OnLeadershipTimeout), nil)
 	return &node
-}
-
-func (n *SimpleRaftNode) OnLeadershipTimeout() {
-	//TODO: n.commands <- LeadershipTimeout{}
-}
-
-func (n *SimpleRaftNode) OnElectionTimeout() {
-	//TODO:n.commands <- ElectionTimeout{}
 }
 
 func (n *SimpleRaftNode) OnRPC(m interface{}) interface{} {
@@ -75,6 +63,64 @@ func (n *SimpleRaftNode) OnRPC(m interface{}) interface{} {
 	default:
 		return InvalidRPC{}
 	}
+}
+
+func (n *SimpleRaftNode) OnLeadershipTimeout() {
+	//TODO: n.commands <- LeadershipTimeout{}
+}
+
+func (n *SimpleRaftNode) OnElectionTimeout() {
+	n.Log("Election timeout")
+	if n.votedFor != nil {
+		n.Logf("Ignoring, already voted for %+v", *n.votedFor)
+	}
+	n.becomeCandidate() // restart election
+}
+
+func (n *SimpleRaftNode) becomeFollower() {
+	n.Logf("Becoming follower (was %v)", n.state)
+	n.electionTimer.Stop() // TODO:race condition, what if timeout command was already queued
+	n.state = Follower
+}
+
+func (n *SimpleRaftNode) becomeCandidate() {
+	n.Logf("Becoming candidate (was %v)", n.state)
+	n.electionTimer.Stop() // TODO:race condition, what if timeout command was already queued
+	n.electionTimer.Reset()
+	n.state = Candidate
+
+	n.currentTerm++
+	n.vote(n.ID())
+	receivedVotes := 0
+	msg := RequestVote{n.currentTerm, n.ID(), 0, n.currentTerm}
+	n.Logf("Send vote request %+v", msg)
+	count, responses := n.comm.BroadcastRPC(msg)
+	quorum := count/2 + 1
+	for ; count > 0; count-- {
+		response, ok := (<-responses).(RequestVoteResult)
+		if !ok {
+			n.Log("Invalid vote request response (possibly timeout)")
+			continue
+		}
+		if response.accept {
+			n.Log("Got yes")
+			receivedVotes++
+		} else {
+			n.Log("Got no")
+		}
+		n.assertUpToDateTerm(response.term)
+		if receivedVotes >= quorum {
+			n.becomeLeader()
+			return // Rest of the votes can be discarded
+		}
+	}
+}
+
+func (n *SimpleRaftNode) becomeLeader() {
+	n.Logf("Becoming leader (was %v)", n.state)
+	n.electionTimer.Stop() // TODO:race condition, what if timeout command was already queued
+	n.state = Leader
+	// TODO: n.RunCommand(LeadershipTimeout{})
 }
 
 func (n *SimpleRaftNode) OnRequestVote(rv RequestVote) RequestVoteResult {
@@ -98,17 +144,6 @@ func (n *SimpleRaftNode) OnRequestVote(rv RequestVote) RequestVoteResult {
 	n.assertUpToDateTerm(rv.term)
 	n.vote(rv.candidateID)
 	return RequestVoteResult{n.ID(), n.currentTerm, response}
-	/*	case RequestVoteResult:
-		n.Logf("Got response to request vote %+v", rv)
-		n.assertUpToDateTerm(rv.term)
-		if rv.accept {
-			n.assertUpToDateTerm(rv.term)
-			n.receivedVotes++
-			if n.receivedVotes >= (n.nodeCount/2)+1 {
-				n.changeState(Leader)
-			}
-		}
-	*/
 }
 
 func (n *SimpleRaftNode) OnAppendEntries(ae AppendEntries) AppendEntriesResult {
@@ -141,12 +176,6 @@ func (n *SimpleRaftNode) OnAppendEntries(ae AppendEntries) AppendEntriesResult {
 			}
 			n.comm.Broadcast(msg)
 			n.leadershipTimer.Reset()
-		case ElectionTimeout:
-			n.Log("Election timeout")
-			if n.votedFor != nil {
-				n.Logf("Ignoring, already voted for %+v", *n.votedFor)
-			}
-			n.changeState(Candidate) // restart election
 		default:
 			n.Logf("Invalid command %+v", ae)
 		}
@@ -165,27 +194,6 @@ func (n *SimpleRaftNode) Start() {
 	n.Log("Stopped raft")
 }
 
-func (n *SimpleRaftNode) changeState(newState State) {
-	n.Logf("Becoming %v (was %v)", newState, n.state)
-	n.electionTimer.Stop() // TODO:race condition, what if timeout command was already queued
-	switch newState {
-	case Follower:
-		n.state = Follower
-	case Candidate:
-		n.electionTimer.Reset()
-		n.state = Candidate
-		n.currentTerm++
-		n.vote(n.ID())
-		n.receivedVotes = 0
-		msg := RequestVote{n.currentTerm, n.ID(), 0, n.currentTerm}
-		n.Logf("Send vote request %+v", msg)
-		n.comm.BroadcastRPC(msg)
-	case Leader:
-		n.state = Leader
-		// TODO: n.RunCommand(LeadershipTimeout{})
-	}
-}
-
 func (n *SimpleRaftNode) vote(nodeID comm.NodeID) {
 	n.votedFor = &nodeID
 }
@@ -194,6 +202,6 @@ func (n *SimpleRaftNode) assertUpToDateTerm(term Term) {
 	if term > n.currentTerm {
 		n.Log("interface{} with term > current term => adjusting")
 		n.currentTerm = term
-		n.changeState(Follower)
+		n.becomeFollower()
 	}
 }

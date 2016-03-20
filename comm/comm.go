@@ -23,7 +23,7 @@ type Joiner interface {
 }
 
 type Broadcaster interface {
-	BroadcastRPC(interface{}) <-chan interface{}
+	BroadcastRPC(interface{}) (int, <-chan interface{})
 }
 
 type MemoryComm struct {
@@ -54,12 +54,12 @@ func (c *MemoryComm) Join(n Node) error {
 	return nil
 }
 
-func (c *MemoryComm) BroadcastRPC(message interface{}) <-chan interface{} {
+func (c *MemoryComm) BroadcastRPC(message interface{}) (int, <-chan interface{}) {
 	results := make(chan interface{})
 	for _, node := range c.nodes {
 		go c.rpc(node, message, results)
 	}
-	return results
+	return len(c.nodes), results
 }
 
 /*

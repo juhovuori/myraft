@@ -20,10 +20,10 @@ func Test(t *testing.T) {
 	n2 := NewSimpleNode(id2)
 	join(t, comm, n2, 2)
 
-	responses := comm.BroadcastRPC("hello")
+	count, responses := comm.BroadcastRPC("hello")
 	timeout := time.After(1 * time.Second)
 
-	for i := 0; i < 2; i++ {
+	for ; count > 0; count-- {
 		select {
 		case <-timeout:
 			t.Fatal("timeout")
