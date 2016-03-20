@@ -7,11 +7,17 @@ import (
 
 type RPCTimeout struct{}
 
+type MulticastResponse struct {
+	NodeID  NodeID
+	Payload interface{}
+}
+
+type InvalidNode struct{}
+
 type Comm interface {
 	Joiner
-	Broadcaster
+	Multicaster
 	Cluster
-	//RPC(NodeID, interface{}) <-chan interface{}
 }
 
 type Cluster interface {
@@ -22,8 +28,8 @@ type Joiner interface {
 	Join(Node) error
 }
 
-type Broadcaster interface {
-	BroadcastRPC(interface{}) (int, <-chan interface{})
+type Multicaster interface {
+	MulticastRPC(interface{}, ...NodeID) <-chan MulticastResponse
 }
 
 type MemoryComm struct {
@@ -37,8 +43,8 @@ func NewMemoryComm() *MemoryComm {
 	return &MemoryComm{
 		nodes:           map[NodeID]Node{},
 		minMessageDelay: time.Duration(0),
-		maxMessageDelay: time.Millisecond * 100,
-		rpcTimeout:      time.Millisecond * 99,
+		maxMessageDelay: time.Millisecond * 50,
+		rpcTimeout:      time.Millisecond * 90,
 	}
 }
 
@@ -54,36 +60,33 @@ func (c *MemoryComm) Join(n Node) error {
 	return nil
 }
 
-func (c *MemoryComm) BroadcastRPC(message interface{}) (int, <-chan interface{}) {
-	results := make(chan interface{})
-	for _, node := range c.nodes {
-		go c.rpc(node, message, results)
+func (c *MemoryComm) MulticastRPC(message interface{}, destinations ...NodeID) <-chan MulticastResponse {
+	results := make(chan MulticastResponse)
+	for _, nodeID := range destinations {
+		if node, ok := c.nodes[nodeID]; ok {
+			go c.rpc(node, message, results)
+		} else {
+			results <- MulticastResponse{nodeID, InvalidNode{}}
+		}
 	}
-	return len(c.nodes), results
+	return results
 }
 
-/*
-func (c *MemoryComm) RPC(id NodeID, message interface{}) <-chan interface{} {
-	result := make(chan interface{})
-	if n, ok := c.nodes[id]; ok {
-		go c.rpc(n, message, result)
-	} else {
-		result <- fmt.Errorf("Invalid node %v", id)
-	}
-	return result
-}
-*/
-func (c *MemoryComm) rpc(n Node, message interface{}, result chan<- interface{}) {
+func (c *MemoryComm) rpc(n Node, message interface{}, result chan<- MulticastResponse) {
 	timeout := time.After(c.rpcTimeout)
 	response := make(chan interface{})
+	var payload interface{}
 	go func() {
 		time.Sleep(Delay(c.minMessageDelay, c.maxMessageDelay))
-		response <- n.OnRPC(message)
+		r := n.OnRPC(message)
+		time.Sleep(Delay(c.minMessageDelay, c.maxMessageDelay))
+		response <- r
 	}()
 	select {
 	case <-timeout:
-		result <- RPCTimeout{}
+		payload = RPCTimeout{}
 	case res := <-response:
-		result <- res
+		payload = res
 	}
+	result <- MulticastResponse{n.ID(), payload}
 }

@@ -1,7 +1,10 @@
 package main
 
 import (
+	"flag"
 	"fmt"
+	"os"
+	"strconv"
 	"time"
 
 	"github.com/juhovuori/myraft/comm"
@@ -9,14 +12,34 @@ import (
 )
 
 func main() {
-	const nodeCount = 3
+	flag.Parse()
+	args := flag.Args()
+	if len(args) != 1 {
+		fmt.Println("Usage myraft <number-of-nodes>")
+		os.Exit(1)
+	}
+	nodeCount, err := strconv.Atoi(args[0])
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+	runRaft(nodeCount)
+}
+
+func runRaft(nodeCount int) {
 	c := comm.NewMemoryComm()
+
+	// Create config
+	config := raft.RaftConfig{}
+	for i := 1; i <= nodeCount; i++ {
+		nodeID := comm.NodeID(fmt.Sprintf("1.2.3.%d", i))
+		config.Nodes = append(config.Nodes, nodeID)
+	}
 
 	// Create nodes
 	nodes := []*raft.SimpleRaftNode{}
-	for i := 1; i < 4; i++ {
-		nodeID := comm.NodeID(fmt.Sprintf("1.2.3.%d", i))
-		n := raft.NewSimpleRaftNode(nodeID, c, nodeCount)
+	for _, nodeID := range config.Nodes {
+		n := raft.NewSimpleRaftNode(nodeID, c, config)
 		c.Join(n)
 		nodes = append(nodes, n)
 	}
@@ -27,7 +50,7 @@ func main() {
 	}
 
 	//
-	time.Sleep(1000 * time.Millisecond)
+	time.Sleep(3 * time.Second)
 
 	// Stop nodes
 	for _, node := range nodes {
