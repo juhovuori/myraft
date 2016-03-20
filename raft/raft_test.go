@@ -2,6 +2,8 @@ package raft
 
 import (
 	"testing"
+
+	"github.com/juhovuori/myraft/comm"
 )
 
 type MockComm func(interface{}) interface{}
@@ -16,17 +18,17 @@ func TestRulesForAll(t *testing.T) {
 	// TODO
 
 	// • If RPC request or response contains term T > currentTerm: set currentTerm = T, convert to follower (§5.1)
-	node = NewSimpleRaftNode(NodeID(1), nil, 1)
+	node = NewSimpleRaftNode(comm.NodeID(1), nil, 1)
 	node.state = Follower
 }
 
 func TestRulesForFollowers(t *testing.T) {
 	// • Respond to RPCs from candidates and leaders
-	node := NewSimpleRaftNode(NodeID(1), nil, 1)
+	node := NewSimpleRaftNode(comm.NodeID(1), nil, 1)
 	node.state = Follower
 
 	// • If election timeout elapses without receiving AppendEntries RPC from current leader or granting vote to candidate: convert to candidate
-	node = NewSimpleRaftNode(NodeID(1), nil, 1)
+	node = NewSimpleRaftNode(comm.NodeID(1), nil, 1)
 	node.state = Follower
 
 }

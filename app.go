@@ -1,23 +1,35 @@
 package main
 
 import (
+	"fmt"
 	"time"
 
+	"github.com/juhovuori/myraft/comm"
 	"github.com/juhovuori/myraft/raft"
 )
 
 func main() {
 	const nodeCount = 3
-	comm := raft.NewMemoryComm()
-	cluster := raft.NewSimpleCluster(nodeCount)
+	c := comm.NewMemoryComm()
+
+	// Create nodes
 	nodes := []*raft.SimpleRaftNode{}
-	for nodeID := range cluster.Iter() {
-		n := raft.NewSimpleRaftNode(nodeID, comm, nodeCount)
-		comm.Join(n)
-		go n.Raft(comm, cluster)
+	for i := 1; i < 4; i++ {
+		nodeID := comm.NodeID(fmt.Sprintf("1.2.3.%d", i))
+		n := raft.NewSimpleRaftNode(nodeID, c, nodeCount)
+		c.Join(n)
 		nodes = append(nodes, n)
 	}
+
+	// Start nodes
+	for _, node := range nodes {
+		go node.Start()
+	}
+
+	//
 	time.Sleep(1000 * time.Millisecond)
+
+	// Stop nodes
 	for _, node := range nodes {
 		node.Stop()
 	}

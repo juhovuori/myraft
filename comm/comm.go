@@ -1,16 +1,21 @@
-package raft
+package comm
 
 import (
 	"fmt"
 	"time"
 )
 
-var ()
+type RPCTimeout struct{}
 
 type Comm interface {
 	Joiner
 	Broadcaster
+	Cluster
 	//RPC(NodeID, interface{}) <-chan interface{}
+}
+
+type Cluster interface {
+	Count() int
 }
 
 type Joiner interface {
@@ -35,6 +40,10 @@ func NewMemoryComm() *MemoryComm {
 		maxMessageDelay: time.Millisecond * 100,
 		rpcTimeout:      time.Millisecond * 99,
 	}
+}
+
+func (c *MemoryComm) Count() int {
+	return len(c.nodes)
 }
 
 func (c *MemoryComm) Join(n Node) error {

@@ -1,10 +1,11 @@
-package raft
+package comm
 
 import (
 	"fmt"
+	"sync/atomic"
 )
 
-type NodeID int
+type NodeID string
 
 type Node interface {
 	OnRPC(interface{}) interface{}
@@ -16,11 +17,14 @@ type SimpleNode struct {
 	nodePrefix string
 }
 
+var nodeN int32
+
 func NewSimpleNode(nodeID NodeID) *SimpleNode {
 	prefix := ""
-	for i := 0; i < int(nodeID)%7; i++ {
+	for i := 0; i < int(nodeN)%7; i++ {
 		prefix = prefix + "                                            "
 	}
+	atomic.AddInt32(&nodeN, 1)
 	return &SimpleNode{
 		nodeID,
 		prefix,

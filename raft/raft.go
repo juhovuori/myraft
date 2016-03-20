@@ -1,5 +1,7 @@
 package raft
 
+import "github.com/juhovuori/myraft/comm"
+
 type State string
 type Term int
 type LogEntry struct {
@@ -14,20 +16,20 @@ const (
 )
 
 type RaftNode interface {
-	Node
-	Raft(comm Broadcaster, cluster Cluster)
+	comm.Node
+	Start()
 	Stop()
 }
 
 type SimpleRaftNode struct {
-	SimpleNode
+	comm.SimpleNode
 	state           State
 	currentTerm     Term
-	votedFor        *NodeID
+	votedFor        *comm.NodeID
 	log             []LogEntry
 	electionTimer   Timer
 	leadershipTimer Timer
-	comm            Comm
+	comm            comm.Comm
 	nodeCount       int
 	receivedVotes   int
 	commitIndex     int
@@ -35,16 +37,16 @@ type SimpleRaftNode struct {
 	done            chan bool
 }
 
-func NewSimpleRaftNode(nodeID NodeID, comm Comm, nodeCount int) *SimpleRaftNode {
+func NewSimpleRaftNode(nodeID comm.NodeID, c comm.Comm, nodeCount int) *SimpleRaftNode {
 	node := SimpleRaftNode{
-		*NewSimpleNode(nodeID),
+		*comm.NewSimpleNode(nodeID),
 		Follower,
 		Term(0),
 		nil,
 		[]LogEntry{},
 		nil,
 		nil,
-		comm,
+		c,
 		nodeCount,
 		0,
 		0,
@@ -156,7 +158,7 @@ func (n *SimpleRaftNode) Stop() {
 	n.done <- true
 }
 
-func (n *SimpleRaftNode) Raft(comm Comm, cluster Cluster) {
+func (n *SimpleRaftNode) Start() {
 	n.electionTimer.Reset()
 	n.Log("Started raft")
 	<-n.done
@@ -184,7 +186,7 @@ func (n *SimpleRaftNode) changeState(newState State) {
 	}
 }
 
-func (n *SimpleRaftNode) vote(nodeID NodeID) {
+func (n *SimpleRaftNode) vote(nodeID comm.NodeID) {
 	n.votedFor = &nodeID
 }
 

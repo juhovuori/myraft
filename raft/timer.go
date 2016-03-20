@@ -2,6 +2,8 @@ package raft
 
 import (
 	"time"
+
+	"github.com/juhovuori/myraft/comm"
 )
 
 var (
@@ -56,7 +58,7 @@ func (t *DefaultTimer) log(msgs ...interface{}) {
 }
 
 func (t *DefaultTimer) alarm(round int) {
-	d := Delay(t.minTimeout, t.maxTimeout)
+	d := comm.Delay(t.minTimeout, t.maxTimeout)
 	t.log("timing out for", d)
 	time.Sleep(d)
 	t.timeout <- round

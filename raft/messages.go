@@ -1,5 +1,7 @@
 package raft
 
+import "github.com/juhovuori/myraft/comm"
+
 type Stop struct{}
 
 type LeadershipTimeout struct{}
@@ -7,7 +9,7 @@ type LeadershipTimeout struct{}
 type ElectionTimeout struct{}
 
 type RequestVoteResult struct {
-	nodeID NodeID
+	nodeID comm.NodeID
 	term   Term
 	accept bool
 }
@@ -17,14 +19,14 @@ type RPCTimeout struct{}
 
 type RequestVote struct {
 	term         Term
-	candidateID  NodeID
+	candidateID  comm.NodeID
 	lastLogIndex int
 	lastLogTerm  Term
 }
 
 type AppendEntries struct {
 	term         Term
-	leaderID     NodeID
+	leaderID     comm.NodeID
 	prevLogIndex int
 	prevLogTerm  Term
 	entries      []LogEntry
@@ -32,7 +34,7 @@ type AppendEntries struct {
 }
 
 type AppendEntriesResult struct {
-	nodeID  NodeID
+	nodeID  comm.NodeID
 	term    Term
 	success bool
 }
