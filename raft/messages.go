@@ -2,8 +2,11 @@ package raft
 
 import "github.com/juhovuori/myraft/comm"
 
-type Stop struct{}
-
+type Command string
+type CommandResult struct {
+	Success bool
+	Leader  comm.NodeID
+}
 type LeadershipTimeout struct{}
 
 type ElectionTimeout struct{}

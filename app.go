@@ -49,11 +49,28 @@ func runRaft(nodeCount int) {
 		go node.Start()
 	}
 
-	//
-	time.Sleep(3 * time.Second)
+	// Send random queries for some time
+	presumedLeader := config.Nodes[0]
+	t1 := time.After(3 * time.Second)
+	for timeout := false; !timeout; {
+		t2 := time.After(comm.Delay(0, 100*time.Millisecond))
+		select {
+		case <-t1:
+			timeout = true
+			break
+		case <-t2:
+			msg := raft.Command(string(presumedLeader))
+			response := <-c.MulticastRPC(msg, presumedLeader)
+			cmdResponse, ok := response.Payload.(raft.CommandResult)
+			if ok {
+				presumedLeader = cmdResponse.Leader
+			}
+		}
+	}
 
 	// Stop nodes
 	for _, node := range nodes {
 		node.Stop()
+		node.DumpLog()
 	}
 }
