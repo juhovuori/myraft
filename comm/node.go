@@ -7,6 +7,8 @@ import (
 
 type NodeID string
 
+type RPCReceived struct{}
+
 type Node interface {
 	OnRPC(interface{}) interface{}
 	ID() NodeID
@@ -32,7 +34,7 @@ func NewSimpleNode(nodeID NodeID) *SimpleNode {
 }
 
 func (n *SimpleNode) OnRPC(msg interface{}) interface{} {
-	return fmt.Errorf("Not implemented")
+	return RPCReceived{}
 }
 
 func (n *SimpleNode) ID() NodeID {

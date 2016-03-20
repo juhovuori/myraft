@@ -57,7 +57,7 @@ func (c *MemoryComm) Join(n Node) error {
 func (c *MemoryComm) BroadcastRPC(message interface{}) <-chan interface{} {
 	results := make(chan interface{})
 	for _, node := range c.nodes {
-		c.rpc(node, message, results)
+		go c.rpc(node, message, results)
 	}
 	return results
 }
